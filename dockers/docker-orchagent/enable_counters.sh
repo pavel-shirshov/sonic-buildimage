@@ -6,7 +6,7 @@
 
 uptime_str=$(</proc/uptime)
 uptime_sec=${uptime_str%% *}
-if [[ $uptime_sec -lt 300 ]]; # wait 5 minutes
+if [[ $uptime_sec -lt 300 ]]; # uptime less then 5 minutes?
 then
   sleep 180
 else
