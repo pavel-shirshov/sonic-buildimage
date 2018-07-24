@@ -17,7 +17,7 @@ def enable_counters():
 
 def get_uptime():
     with open('/proc/uptime') as fp:
-        return fp.read().split(' ')[0]
+        return int(fp.read().split(' ')[0])
 
 def main():
     # If the switch was just started (uptime less than 5 minutes),
