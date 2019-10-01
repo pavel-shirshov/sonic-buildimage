@@ -470,7 +470,7 @@ def parse_spine_chassis_fe(results, vni, lo_intfs, phyport_intfs, pc_intfs, pc_m
         # A IP interface may have multiple entries. 
         # For example, "Ethernet0": {}", "Ethernet0|192.168.1.1": {}"
         # We only care about the one without IP information
-        if is_ip_prefix_in_key(intf) == True:
+        if is_ip_prefix_in_key(intf):
             continue 
             
         neighbor_router = results['DEVICE_NEIGHBOR'][intf]['name']
@@ -485,7 +485,7 @@ def parse_spine_chassis_fe(results, vni, lo_intfs, phyport_intfs, pc_intfs, pc_m
         # A port channel IP interface may have multiple entries. 
         # For example, "Portchannel0": {}", "Portchannel0|192.168.1.1": {}"
         # We only care about the one without IP information
-        if is_ip_prefix_in_key(pc_intf) == True:
+        if is_ip_prefix_in_key(pc_intf):
             continue 
 
         intf_name = None 
@@ -495,7 +495,7 @@ def parse_spine_chassis_fe(results, vni, lo_intfs, phyport_intfs, pc_intfs, pc_m
                 intf_name = pc_member[1]
                 break 
 
-        if intf_name == None:
+        if intf_name is None:
             print >> sys.stderr, 'Warning: cannot find any interfaces that belong to %s' % (pc_intf)
             continue
 
