@@ -14,7 +14,7 @@ class TestCfgGen(TestCase):
         self.sample_graph_pc_test = os.path.join(self.test_dir, 'pc-test-graph.xml')
         self.sample_graph_bgp_speaker = os.path.join(self.test_dir, 't0-sample-bgp-speaker.xml')
         self.sample_device_desc = os.path.join(self.test_dir, 'device.xml')
-        self.port_config = os.path.join(self.test_dir, 't0-sample-port-config.ini')
+        self.port_config = os.path.join(self.test_dir, 'input/ini/ini_aliases.ini')
 
     def run_script(self, argument, check_stderr=False):
         print '\n    Running sonic-cfggen ' + argument

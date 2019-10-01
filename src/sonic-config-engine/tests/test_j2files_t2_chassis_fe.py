@@ -13,7 +13,7 @@ class TestJ2FilesT2ChassisFe(TestCase):
         self.t2_chassis_fe_minigraph = os.path.join(self.test_dir, 't2-chassis-fe-graph.xml')
         self.t2_chassis_fe_vni_minigraph = os.path.join(self.test_dir, 't2-chassis-fe-graph-vni.xml')
         self.t2_chassis_fe_pc_minigraph = os.path.join(self.test_dir, 't2-chassis-fe-graph-pc.xml')
-        self.t2_chassis_fe_port_config = os.path.join(self.test_dir, 't2-chassis-fe-port-config.ini')
+        self.t2_chassis_fe_port_config = os.path.join(self.test_dir, 'input/ini/ini_no_aliases.ini')
         self.output_file = os.path.join(self.test_dir, 'output')
 
     def run_script(self, argument):

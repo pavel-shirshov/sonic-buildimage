@@ -14,9 +14,9 @@ class TestJ2Files(TestCase):
         self.t0_minigraph = os.path.join(self.test_dir, 't0-sample-graph.xml')
         self.t0_mvrf_minigraph = os.path.join(self.test_dir, 't0-sample-graph-mvrf.xml')
         self.pc_minigraph = os.path.join(self.test_dir, 'pc-test-graph.xml')
-        self.t0_port_config = os.path.join(self.test_dir, 't0-sample-port-config.ini')
+        self.t0_port_config = os.path.join(self.test_dir, 'input/ini/ini_aliases.ini')
         self.t1_mlnx_minigraph = os.path.join(self.test_dir, 't1-sample-graph-mlnx.xml')
-        self.mlnx_port_config = os.path.join(self.test_dir, 'sample-port-config-mlnx.ini')
+        self.mlnx_port_config = os.path.join(self.test_dir, 'input/ini/ini_no_aliases.ini')
         self.dell6100_t0_minigraph = os.path.join(self.test_dir, 'sample-dell-6100-t0-minigraph.xml')
         self.output_file = os.path.join(self.test_dir, 'output')
 

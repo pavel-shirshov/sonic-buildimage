@@ -10,7 +10,7 @@ class TestCfgGenT2ChassisFe(TestCase):
         self.sample_graph_t2_chassis_fe = os.path.join(self.test_dir, 't2-chassis-fe-graph.xml')
         self.sample_graph_t2_chassis_fe_vni = os.path.join(self.test_dir, 't2-chassis-fe-graph-vni.xml')
         self.sample_graph_t2_chassis_fe_pc = os.path.join(self.test_dir, 't2-chassis-fe-graph-pc.xml')
-        self.t2_chassis_fe_port_config = os.path.join(self.test_dir, 't2-chassis-fe-port-config.ini')
+        self.t2_chassis_fe_port_config = os.path.join(self.test_dir, 'input/ini/ini_no_aliases.ini')
 
     def run_script(self, argument, check_stderr=False):
         print '\n    Running sonic-cfggen ' + argument
