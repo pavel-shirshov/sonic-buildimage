@@ -1,0 +1,11 @@
+! template: frr/bgpd/templates/T0_V6/peer-group.conf.j2
+!
+  neighbor T0_V6 peer-group
+  address-family ipv6
+    neighbor T0_V6 allowas-in 1
+    neighbor T0_V6 soft-reconfiguration inbound
+    neighbor T0_V6 route-map FROM_T0_V6 ib
+    neighbor T0_V6 route-map TO_T0_V6 out
+  exit-address-family
+!
+! end of template: frr/bgpd/templates/T0_V6/peer-group.conf.j2

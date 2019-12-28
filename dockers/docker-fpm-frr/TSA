@@ -14,7 +14,7 @@ c=$((c+$?))
 if [[ $c -eq 4 ]];
 then
   TSA_FILE=$(mktemp)
-  sonic-cfggen -d -y /etc/sonic/constants.yml -t /usr/share/sonic/templates/bgpd.tsa.isolate.conf.j2 > "$TSA_FILE"
+  sonic-cfggen -d -y /etc/sonic/constants.yml -t /usr/share/sonic/templates/frr/bgpd/tsa/bgpd.tsa.isolate.conf.j2 > "$TSA_FILE"
   vtysh -f "$TSA_FILE"
   rm -f "$TSA_FILE"
   echo "System Mode: Normal -> Maintenance"

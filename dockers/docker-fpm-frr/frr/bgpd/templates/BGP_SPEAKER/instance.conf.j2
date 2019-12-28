@@ -1,0 +1,28 @@
+! template: frr/bgpd/templates/BGP_SPEAKER/instance.conf.j2
+!
+{% for ip_range in bgp_peer['ip_range'] %}
+  bgp listen range {{ ip_range }} peer-group BGP_SPEAKER
+{% endfor %}
+!
+{% if bgp_peer['peer_asn'] is defined %}
+  neighbor {{ bgp_peer['name'] }} remote-as {{ bgp_peer['peer_asn'] }}
+{% else %}
+  neighbor {{ bgp_peer['name'] }} remote-as {{ constants.deployment_id_asn_map[DEVICE_METADATA['localhost']['deployment_id']] }}
+{% endif %}
+!
+{% if bgp_peer['src_address'] is defined %}
+  neighbor {{ bgp_peer['name'] }} update-source {{ bgp_peer['src_address'] | ip }}
+{% else %}
+{%   if Loopback1_ipv4 is defined and Loopback1_ipv4 is not none %}
+  neighbor {{ bgp_peer['name'] }} update-source {{ Loopback1_ipv4 | ip }}
+{%   endif %}
+{% endif %}
+!
+  address-family ipv4
+    neighbor {{ bgp_peer['name'] }} activate
+  exit-address-family
+  address-family ipv6
+    neighbor {{ bgp_peer['name'] }} activate
+  exit-address-family
+!
+! end of template: frr/bgpd/templates/BGP_SPEAKER/instance.conf.j2

@@ -1,0 +1,10 @@
+! template: frr/bgpd/templates/BGP_SPEAKER/peer-group.conf.j2
+!
+  neighbor BGP_SPEAKER peer-group
+  neighbor BGP_SPEAKER passive
+  neighbor BGP_SPEAKER ebgp-multihop 255
+  neighbor BGP_SPEAKER soft-reconfiguration inbound
+  neighbor BGP_SPEAKER route-map FROM_BGP_SPEAKER in
+  neighbor BGP_SPEAKER route-map TO_BGP_SPEAKER out
+!
+! end of template: frr/bgpd/templates/BGP_SPEAKER/peer-group.conf.j2

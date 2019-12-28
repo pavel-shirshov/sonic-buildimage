@@ -6,7 +6,7 @@
 !
 {% endblock banner %}
 !
-{% include "daemons.common.conf.j2" %}
+{% include "frr/common/daemons.common.conf.j2" %}
 !
 agentx
 !
@@ -14,5 +14,5 @@ agentx
 !
 {% include "staticd.default_route.conf.j2" %}
 !
-{% include "bgpd.conf.default.j2" %}
+{% include "bgpd.main.conf.j2" %}
 !

@@ -5,7 +5,7 @@ mkdir -p /etc/frr
 CONFIG_TYPE=`sonic-cfggen -d -v 'DEVICE_METADATA["localhost"]["docker_routing_config_mode"]'`
 
 if [ -z "$CONFIG_TYPE" ] || [ "$CONFIG_TYPE" == "separated" ]; then
-    sonic-cfggen -d -y /etc/sonic/constants.yml -t /usr/share/sonic/templates/bgpd.conf.j2 > /etc/frr/bgpd.conf
+    sonic-cfggen -d -y /etc/sonic/constants.yml -t /usr/share/sonic/templates/frr/bgpd/bgpd.conf.j2 > /etc/frr/bgpd.conf
     sonic-cfggen -d -t /usr/share/sonic/templates/zebra.conf.j2 > /etc/frr/zebra.conf
     sonic-cfggen -d -t /usr/share/sonic/templates/staticd.conf.j2 > /etc/frr/staticd.conf
     echo "no service integrated-vtysh-config" > /etc/frr/vtysh.conf

@@ -1,4 +1,47 @@
 constants:
   deployment_id_asn_map:
     "1" : 65432
-  traffic_shift_community: 12345:12345
+    "2" : 65433
+  bgp:
+    traffic_shift_community: 12345:12345
+    graceful_restart:
+      enabled: true
+      restart_time: 240
+    multipath_relax:
+      enabled: true
+    maximum_paths:
+      enabled: true
+      ipv4: 64
+      ipv6: 64
+    peers:
+      dynamic: # BGP_PEER_RANGE
+        BGP_SPEAKER: # defines peer_group
+          enabled: true
+      monitors: # BGP_MONITORS
+        BGPMON: # defines peer_group
+          enabled: true
+      general: # bgpcfgd
+        T0_V4: # from t0 to t1
+          enabled: true
+          level: ToRRouter
+          deployment_id: 1
+        T0_V6:
+          enabled: true
+          level: ToRRouter
+          deployment_id: 1
+        T2_V4:
+          enabled: true
+          level: ???
+          deployment_id: 1
+        T2_V6:
+          enabled: true
+          level: ???
+          deployment_id: 1
+        ER_V4:
+          enabled: true
+          level: ToRRouter
+          deployment_id: 2
+        ER_V6:
+          enabled: true
+          level: ToRRouter
+          deployment_id: 2

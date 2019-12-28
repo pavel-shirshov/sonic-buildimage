@@ -1,3 +1,6 @@
+! template: frr/bgpd/bgpd.conf.j2
+!
+{% include "frr/common/functions.conf.j2" %}
 !
 {% block banner %}
 ! =========== Managed by sonic-cfggen DO NOT edit manually! ====================
@@ -6,13 +9,14 @@
 !
 {% endblock banner %}
 !
-{% include "daemons.common.conf.j2" %}
+{% include "frr/common/daemons.common.conf.j2" %}
 !
 agentx
 !
 {% if DEVICE_METADATA['localhost']['type'] == "SpineChassisFrontendRouter" %}
-{%  include "bgpd.conf.spine_chassis_frontend_router.j2" %}
+{%  include "bgpd.spine_chassis_frontend_router.conf.j2" %}
 {% endif %}
 !
-{% include "bgpd.conf.default.j2" %}
+{% include "bgpd.main.conf.j2" %}
 !
+! end of template: frr/bgpd/bgpd.conf.j2

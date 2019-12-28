@@ -1,0 +1,29 @@
+{# define Loopback0 variables #}
+{% set L0_ipv4 = namespace(ip=None) %}
+{% set L0_ipv6 = namespace(ip=None) %}
+{% for (name, prefix) in LOOPBACK_INTERFACE|pfx_filter %}
+{%   if name == 'Loopback0' %}
+{%     if prefix | ipv4 %}
+{%       set L0_ipv4.ip = prefix %}
+{%     elif prefix | ipv6 %}
+{%       set L0_ipv6.ip = prefix %}
+{%     endif %}
+{%   endif %}
+{% endfor %}
+{% set Loopback0_ipv4 = L0_ipv4.ip %}
+{% set Loopback0_ipv6 = L0_ipv6.ip %}
+
+{# define Loopback1 variables #}
+{% set L1_ipv4 = namespace(ip=None) %}
+{% set L1_ipv6 = namespace(ip=None) %}
+{% for (name, prefix) in LOOPBACK_INTERFACE|pfx_filter %}
+{%   if name == 'Loopback1' %}
+{%     if prefix | ipv4 %}
+{%       set L1_ipv4.ip = prefix %}
+{%     elif prefix | ipv6 %}
+{%       set L1_ipv6.ip = prefix %}
+{%     endif %}
+{%   endif %}
+{% endfor %}
+{% set Loopback1_ipv4 = L1_ipv4.ip %}
+{% set Loopback1_ipv6 = L1_ipv6.ip %}

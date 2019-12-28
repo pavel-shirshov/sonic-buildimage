@@ -14,7 +14,7 @@ c=$((c+$?))
 if [[ $c -eq 0 ]];
 then
   TSB_FILE=$(mktemp)
-  sonic-cfggen -d -y /etc/sonic/constants.yml -t /usr/share/sonic/templates/bgpd.tsa.unisolate.conf.j2 > "$TSB_FILE"
+  sonic-cfggen -d -y /etc/sonic/constants.yml -t /usr/share/sonic/templates/frr/bgpd/tsa/bgpd.tsa.unisolate.conf.j2 > "$TSB_FILE"
   vtysh -f "$TSB_FILE"
   rm -f "$TSB_FILE"
   echo "System Mode: Maintenance -> Normal"
