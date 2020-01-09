@@ -17,7 +17,7 @@
 {% endfor %}
 {# define general policies #}
 {% for name, props in constants.bgp.peers.general.items() %}
-{%   if props.enabled and props.deployment_id == DEVICE_METADATA['localhost']['deployment_id'] and props.level == DEVICE_METADATA['localhost']['type'] %}
+{%   if props.enabled and props.deployment_id == DEVICE_METADATA['localhost']['deployment_id'] | int and props.level == DEVICE_METADATA['localhost']['type'] %}
 {%     include "frr/bgpd/templates/" + name + "/policies.conf.j2" %}
 {%   endif %}
 {% endfor %}
@@ -95,7 +95,7 @@ router bgp {{ DEVICE_METADATA['localhost']['bgp_asn'] }}
 {% endfor %}
 {# define general peer groups #}
 {% for name, props in constants.bgp.peers.general.items() %}
-{%   if props.enabled and props.deployment_id == DEVICE_METADATA['localhost']['deployment_id'] and props.level == DEVICE_METADATA['localhost']['type'] %}
+{%   if props.enabled and props.deployment_id == DEVICE_METADATA['localhost']['deployment_id'] | int and props.level == DEVICE_METADATA['localhost']['type'] %}
 {%     include "frr/bgpd/templates/" + name + "/peer-group.conf.j2" %}
 {%   endif %}
 {% endfor %}

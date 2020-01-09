@@ -43,7 +43,7 @@ RUN apt-get clean -y      && \
     apt-get autoremove -y && \
     rm -rf /debs ~/.cache
 
-COPY ["frr", "/usr/share/sonic/templates/"]
+COPY ["frr", "/usr/share/sonic/templates/frr"]
 COPY ["bgpcfgd", "start.sh", "/usr/bin/"]
 COPY ["supervisord.conf", "/etc/supervisor/conf.d/"]
 COPY ["snmp.conf", "/etc/snmp/frr.conf"]
