@@ -1,3 +1,4 @@
+!
 ! template: frr/bgpd/bgpd.main.conf.j2
 !
 ! bgp multiple-instance
@@ -99,4 +100,6 @@ router bgp {{ DEVICE_METADATA['localhost']['bgp_asn'] }}
 {%     include "frr/bgpd/templates/" + name + "/peer-group.conf.j2" %}
 {%   endif %}
 {% endfor %}
+!
 ! end of template: frr/bgpd/bgpd.main.conf.j2
+!
