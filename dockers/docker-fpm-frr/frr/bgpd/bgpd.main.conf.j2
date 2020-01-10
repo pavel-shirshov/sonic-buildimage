@@ -37,7 +37,8 @@ router bgp {{ DEVICE_METADATA['localhost']['bgp_asn'] }}
   bgp graceful-restart restart-time {{ constants.bgp.graceful_restart.restart_time | default(240) }}
   bgp graceful-restart
 {%   if DEVICE_METADATA['localhost']['type'] == 'ToRRouter' %}
-  bgp graceful-restart preserve-fw-state ! FIXME: we could make it configurable from bgpcfgd
+! FIXME: we could make it configurable from bgpcfgd
+  bgp graceful-restart preserve-fw-state
 {%   endif %}
 {% endif %}
 !

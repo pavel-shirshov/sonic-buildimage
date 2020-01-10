@@ -5,7 +5,7 @@
   address-family ipv6
     neighbor T0_V6 allowas-in 1
     neighbor T0_V6 soft-reconfiguration inbound
-    neighbor T0_V6 route-map FROM_T0_V6 ib
+    neighbor T0_V6 route-map FROM_T0_V6 in
     neighbor T0_V6 route-map TO_T0_V6 out
   exit-address-family
 !

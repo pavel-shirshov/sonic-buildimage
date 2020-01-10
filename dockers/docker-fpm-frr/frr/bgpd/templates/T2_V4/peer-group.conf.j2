@@ -4,7 +4,7 @@
   neighbor T2_V4 peer-group
   address-family ipv4
     neighbor T2_V4 soft-reconfiguration inbound
-    neighbor T2_V4 route-map FROM_T2_V4 ib
+    neighbor T2_V4 route-map FROM_T2_V4 in
     neighbor T2_V4 route-map TO_T2_V4 out
   exit-address-family
 !

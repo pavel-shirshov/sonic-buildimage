@@ -10,6 +10,7 @@ import traceback
 import os
 import tempfile
 import json
+import yaml
 from collections import defaultdict
 from pprint import pprint
 from pprint import pformat
@@ -182,8 +183,9 @@ class Directory(object):
 
 
 class Manager(object):
-    def __init__(self, daemon, directory, deps, database, table_name):
+    def __init__(self, daemon, directory, constants, deps, database, table_name):
         self.directory = directory
+        self.constants = constants
         self.deps = deps
         self.set_queue = []
         daemon.add_manager(database, table_name, self.handler)
@@ -218,10 +220,11 @@ class Manager(object):
 
 
 class BGPDeviceMetaMgr(Manager):
-    def __init__(self, daemon, directory):
+    def __init__(self, daemon, directory, constants):
         super(BGPDeviceMetaMgr, self).__init__(
             daemon,
             directory,
+            constants,
             [],
             swsscommon.CONFIG_DB,
             swsscommon.CFG_DEVICE_METADATA_TABLE_NAME
@@ -243,10 +246,11 @@ class BGPDeviceMetaMgr(Manager):
 
 
 class BGPNeighborMetaMgr(Manager):
-    def __init__(self, daemon, directory):
+    def __init__(self, daemon, directory, constants):
         super(BGPNeighborMetaMgr, self).__init__(
             daemon,
             directory,
+            constants,
             [],
             swsscommon.CONFIG_DB,
             swsscommon.CFG_DEVICE_NEIGHBOR_METADATA_TABLE_NAME
@@ -262,21 +266,34 @@ class BGPNeighborMetaMgr(Manager):
 
 
 class BGPPeerMgr(Manager):
-    def __init__(self, daemon, directory):
+    def __init__(self, daemon, directory, constants):
         super(BGPPeerMgr, self).__init__(
             daemon,
             directory,
+            constants,
             [
                 ("meta", "localhost/bgp_asn"),
+                ("meta", "localhost/deployment_id"),
                 ("neigmeta", ""),
             ],
             swsscommon.CONFIG_DB,
             swsscommon.CFG_BGP_NEIGHBOR_TABLE_NAME
         )
         self.peers = self.load_peers()
+
+        add_template = ''
+        if_word = 'if'
+        for peer_name, peer in constants['constants']['bgp']['peers']['general'].items():
+            add_template += "{%% %s DEVICE_NEIGHBOR_METADATA[bgp_session['name']]['deployment_id'] == '%s'" % (if_word, peer["deployment_id"])
+            add_template += " and neighbor_addr | %s" % ('ipv4' if peer["ipv"] == 'v4' else 'ipv6')
+            add_template += " and DEVICE_NEIGHBOR_METADATA[bgp_session['name']]['type'] == '%s' %%}" % peer["level"]
+            add_template += "  {%% include 'frr/bgpd/templates/%s/instance.conf.j2' %%}" % peer_name
+            if_word = 'elif'
+        add_template += "{% endif %}"
+
         fabric = TemplateFabric()
         self.templates = {
-            "add":         fabric.from_file('bgpd.peer.conf.j2'),
+            "add":         fabric.from_string(add_template),
             "delete":      fabric.from_string('no neighbor {{ neighbor_addr }}'),
             "shutdown":    fabric.from_string('neighbor {{ neighbor_addr }} shutdown'),
             "no shutdown": fabric.from_string('no neighbor {{ neighbor_addr }} shutdown'),
@@ -386,7 +403,6 @@ class BGPPeerMgr(Manager):
 
         return peers
 
-
 def wait_for_bgpd():
     # wait for 20 seconds
     stop_time = datetime.datetime.now() + datetime.timedelta(seconds=20)
@@ -400,16 +416,22 @@ def wait_for_bgpd():
     raise RuntimeError("bgpd hasn't been started in 20 seconds")
 
 
+def read_constants():
+    with open('/etc/sonic/constants.yml') as fp:
+        return yaml.load(fp)
+
+
 def main():
     managers = [
         BGPDeviceMetaMgr,
         BGPNeighborMetaMgr,
         BGPPeerMgr,
     ]
+    constants = read_constants()
     wait_for_bgpd()
     daemon = Daemon()
     directory = Directory()
-    manager_instanses = [ manager(daemon, directory) for manager in managers ]
+    manager_instanses = [ manager(daemon, directory, constants) for manager in managers ]
     daemon.run()
 
 
