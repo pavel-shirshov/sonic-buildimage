@@ -31,11 +31,11 @@ constants:
           deployment_id: 1
         T2_V4:
           enabled: true
-          level: ???
+          level: SpineRouter
           deployment_id: 1
         T2_V6:
           enabled: true
-          level: ???
+          level: SpineRouter
           deployment_id: 1
         ER_V4:
           enabled: true
