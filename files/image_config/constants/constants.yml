@@ -31,6 +31,16 @@ constants:
           level: ToRRouter
           deployment_id: 1
           ipv: v6
+        T1_V4:
+          enabled: true
+          level: LeafRouter
+          deployment_id: 1
+          ipv: v4
+        T1_V6:
+          enabled: true
+          level: LeafRouter
+          deployment_id: 1
+          ipv: v6
         T2_V4:
           enabled: true
           level: SpineRouter
