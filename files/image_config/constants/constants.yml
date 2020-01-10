@@ -25,23 +25,29 @@ constants:
           enabled: true
           level: ToRRouter
           deployment_id: 1
+          ipv: v4
         T0_V6:
           enabled: true
           level: ToRRouter
           deployment_id: 1
+          ipv: v6
         T2_V4:
           enabled: true
           level: SpineRouter
           deployment_id: 1
+          ipv: v4
         T2_V6:
           enabled: true
           level: SpineRouter
           deployment_id: 1
+          ipv: v6
         ER_V4:
           enabled: true
           level: ToRRouter
           deployment_id: 2
+          ipv: v4
         ER_V6:
           enabled: true
           level: ToRRouter
           deployment_id: 2
+          ipv: v6
