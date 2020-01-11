@@ -18,9 +18,11 @@
 {% endfor %}
 {# define general policies #}
 {% for name, props in constants.bgp.peers.general.items() %}
-{%   if props.enabled and props.deployment_id == DEVICE_METADATA['localhost']['deployment_id'] | int and props.level == DEVICE_METADATA['localhost']['type'] %}
-{%     include "frr/bgpd/templates/" + name + "/policies.conf.j2" %}
-{%   endif %}
+{%   for peer_type in constants.bgp.levels[DEVICE_METADATA['localhost']['type']] %}
+{%     if props.enabled and props.deployment_id == DEVICE_METADATA['localhost']['deployment_id'] | int and props.level == peer_type %}
+{%       include "frr/bgpd/templates/" + name + "/policies.conf.j2" %}
+{%     endif %}
+{%   endfor %}
 {% endfor %}
 ! BGP configuration
 router bgp {{ DEVICE_METADATA['localhost']['bgp_asn'] }}
@@ -97,9 +99,11 @@ router bgp {{ DEVICE_METADATA['localhost']['bgp_asn'] }}
 {% endfor %}
 {# define general peer groups #}
 {% for name, props in constants.bgp.peers.general.items() %}
-{%   if props.enabled and props.deployment_id == DEVICE_METADATA['localhost']['deployment_id'] | int and props.level == DEVICE_METADATA['localhost']['type'] %}
+{%   for peer_type in constants.bgp.levels[DEVICE_METADATA['localhost']['type']] %}
+{%     if props.enabled and props.deployment_id == DEVICE_METADATA['localhost']['deployment_id'] | int and props.level == peer_type %}
 {%     include "frr/bgpd/templates/" + name + "/peer-group.conf.j2" %}
-{%   endif %}
+{%     endif %}
+{%   endfor %}
 {% endfor %}
 !
 ! end of template: frr/bgpd/bgpd.main.conf.j2
