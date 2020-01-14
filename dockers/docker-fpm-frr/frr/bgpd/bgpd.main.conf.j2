@@ -45,20 +45,14 @@ router bgp {{ DEVICE_METADATA['localhost']['bgp_asn'] }}
 {% endif %}
 !
 {# set router-id #}
-{% if Loopback0_ipv4 is defined and Loopback0_ipv4 is not none %}
-  bgp router-id {{ Loopback0_ipv4 | ip }}
-{% endif %}
+  bgp router-id {{ get_ipv4_loopback_address(LOOPBACK_INTERFACE, "Loopback0") | ip }}
 !
 {# advertise loopback #}
-{% if Loopback0_ipv4 is defined and Loopback0_ipv4 is not none %}
-  network {{ Loopback0_ipv4 | ip }}/32
-{% endif %}
+  network {{ get_ipv4_loopback_address(LOOPBACK_INTERFACE, "Loopback0") | ip }}/32
 !
-{% if Loopback0_ipv6 is defined and Loopback0_ipv6 is not none %}
   address-family ipv6
-    network {{ Loopback0_ipv6 | ip }}/64
+    network {{ get_ipv6_loopback_address(LOOPBACK_INTERFACE, "Loopback0") | ip }}/64
   exit-address-family
-{% endif %}
 {% endblock bgp_init %}
 !
 {% block vlan_advertisement %}

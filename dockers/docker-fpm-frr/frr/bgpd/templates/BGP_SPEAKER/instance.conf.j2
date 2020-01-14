@@ -14,9 +14,7 @@
 {% if bgp_peer['src_address'] is defined %}
   neighbor {{ bgp_peer['name'] }} update-source {{ bgp_peer['src_address'] | ip }}
 {% else %}
-{%   if Loopback1_ipv4 is defined and Loopback1_ipv4 is not none %}
-  neighbor {{ bgp_peer['name'] }} update-source {{ Loopback1_ipv4 | ip }}
-{%   endif %}
+  neighbor {{ bgp_peer['name'] }} update-source {{ get_ipv4_loopback_address(LOOPBACK_INTERFACE, "Loopback1") | ip }}
 {% endif %}
 !
   address-family ipv4

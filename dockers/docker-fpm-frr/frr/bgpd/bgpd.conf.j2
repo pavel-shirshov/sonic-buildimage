@@ -1,7 +1,7 @@
 !
 ! template: frr/bgpd/bgpd.conf.j2
 !
-{% include "frr/common/functions.conf.j2" %}
+{% from "frr/common/functions.conf.j2" import get_ipv4_loopback_address, get_ipv6_loopback_address %}
 !
 {% block banner %}
 ! =========== Managed by sonic-cfggen DO NOT edit manually! ====================
