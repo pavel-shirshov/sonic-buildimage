@@ -267,9 +267,9 @@ class BGPNeighborMetaMgr(Manager):
         self.directory.remove("neigmeta", key)
 
 
-class BGPPeerMgr(Manager):
-    def __init__(self, daemon, directory, constants):
-        super(BGPPeerMgr, self).__init__(
+class BGPPeerMgrBase(Manager):
+    def __init__(self, daemon, directory, constants, table_name, add_template):
+        super(BGPPeerMgrBase, self).__init__(
             daemon,
             directory,
             constants,
@@ -279,19 +279,10 @@ class BGPPeerMgr(Manager):
                 ("neigmeta", ""),
             ],
             swsscommon.CONFIG_DB,
-            swsscommon.CFG_BGP_NEIGHBOR_TABLE_NAME
+            table_name,
         )
+        self.table_name = table_name
         self.peers = self.load_peers()
-
-        add_template = ''
-        if_word = 'if'
-        for peer_name, peer in constants['constants']['bgp']['peers']['general'].items():
-            add_template += "{%% %s DEVICE_NEIGHBOR_METADATA[bgp_session['name']]['deployment_id'] == '%s'" % (if_word, peer["deployment_id"])
-            add_template += " and neighbor_addr | %s" % ('ipv4' if peer["ipv"] == 'v4' else 'ipv6')
-            add_template += " and DEVICE_NEIGHBOR_METADATA[bgp_session['name']]['type'] == '%s' %%}" % peer["level"]
-            add_template += "  {%% include 'frr/bgpd/templates/%s/instance.conf.j2' %%}" % peer_name
-            if_word = 'elif'
-        add_template += "{% endif %}"
 
         fabric = TemplateFabric()
         self.templates = {
@@ -405,6 +396,39 @@ class BGPPeerMgr(Manager):
 
         return peers
 
+
+class BGPPeerMgr(BGPPeerMgrBase):
+    def __init__(self, daemon, directory, constants):
+        add_template = ''
+        if_word = 'if'
+        for peer_name, peer in constants['constants']['bgp']['peers']['general'].items():
+            add_template += "{%% %s DEVICE_NEIGHBOR_METADATA[bgp_session['name']]['deployment_id'] == '%s'" % (if_word, peer["deployment_id"])
+            add_template += " and neighbor_addr | %s" % ('ipv4' if peer["ipv"] == 'v4' else 'ipv6')
+            add_template += " and DEVICE_NEIGHBOR_METADATA[bgp_session['name']]['type'] == '%s' %%}" % peer["level"]
+            add_template += "  {%% include 'frr/bgpd/templates/%s/instance.conf.j2' %%}" % peer_name
+            if_word = 'elif'
+        add_template += "{% endif %}"
+
+        super(BGPPeerMgr, self).__init__(
+            daemon,
+            directory,
+            constants,
+            swsscommon.CFG_BGP_NEIGHBOR_TABLE_NAME,
+            add_template,
+        )
+
+
+class BGPMonMgr(BGPPeerMgrBase):
+    def __init__(self, daemon, directory, constants):
+        super(BGPMonMgr, self).__init__(
+            daemon,
+            directory,
+            constants,
+            "BGP_MONITORS", # no table name in swsscommon
+            "{% include 'frr/bgpd/templates/BGPMON/instance.conf.j2' %}",
+        )
+
+
 def wait_for_bgpd():
     # wait for 20 seconds
     stop_time = datetime.datetime.now() + datetime.timedelta(seconds=20)
@@ -428,6 +452,7 @@ def main():
         BGPDeviceMetaMgr,
         BGPNeighborMetaMgr,
         BGPPeerMgr,
+        BGPMonMgr,
     ]
     constants = read_constants()
     wait_for_bgpd()
