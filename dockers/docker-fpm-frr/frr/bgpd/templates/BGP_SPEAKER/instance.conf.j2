@@ -1,27 +1,37 @@
 !
 ! template: frr/bgpd/templates/BGP_SPEAKER/instance.conf.j2
 !
-{% for ip_range in bgp_peer['ip_range'] %}
-  bgp listen range {{ ip_range }} peer-group BGP_SPEAKER
-{% endfor %}
+{% from "frr/common/functions.conf.j2" import get_ipv4_loopback_address %}
 !
-{% if bgp_peer['peer_asn'] is defined %}
-  neighbor {{ bgp_peer['name'] }} remote-as {{ bgp_peer['peer_asn'] }}
+  neighbor {{ bgp_session['name'] }} peer-group
+  neighbor {{ bgp_session['name'] }} passive
+  neighbor {{ bgp_session['name'] }} ebgp-multihop 255
+  neighbor {{ bgp_session['name'] }} soft-reconfiguration inbound
+  neighbor {{ bgp_session['name'] }} route-map FROM_BGP_SPEAKER in
+  neighbor {{ bgp_session['name'] }} route-map TO_BGP_SPEAKER out
+!
+{% if bgp_session['peer_asn'] is defined %}
+  neighbor {{ bgp_session['name'] }} remote-as {{ bgp_session['peer_asn'] }}
 {% else %}
-  neighbor {{ bgp_peer['name'] }} remote-as {{ constants.deployment_id_asn_map[DEVICE_METADATA['localhost']['deployment_id']] }}
+  neighbor {{ bgp_session['name'] }} remote-as {{ constants.deployment_id_asn_map[DEVICE_METADATA['localhost']['deployment_id']] }}
 {% endif %}
 !
-{% if bgp_peer['src_address'] is defined %}
-  neighbor {{ bgp_peer['name'] }} update-source {{ bgp_peer['src_address'] | ip }}
+{# FIXME: bgp_session['ip_range'] check the type #}
+{% for ip_range in bgp_session['ip_range'].split(',') %}
+  bgp listen range {{ ip_range }} peer-group {{ bgp_session['name'] }}
+{% endfor %}
+!
+{% if bgp_session['src_address'] is defined %}
+  neighbor {{ bgp_session['name'] }} update-source {{ bgp_session['src_address'] | ip }}
 {% else %}
-  neighbor {{ bgp_peer['name'] }} update-source {{ get_ipv4_loopback_address(LOOPBACK_INTERFACE, "Loopback1") | ip }}
+  neighbor {{ bgp_session['name'] }} update-source {{ get_ipv4_loopback_address(LOOPBACK_INTERFACE, "Loopback1") | ip }}
 {% endif %}
 !
   address-family ipv4
-    neighbor {{ bgp_peer['name'] }} activate
+    neighbor {{ bgp_session['name'] }} activate
   exit-address-family
   address-family ipv6
-    neighbor {{ bgp_peer['name'] }} activate
+    neighbor {{ bgp_session['name'] }} activate
   exit-address-family
 !
 ! end of template: frr/bgpd/templates/BGP_SPEAKER/instance.conf.j2

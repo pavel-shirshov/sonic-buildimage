@@ -11,9 +11,10 @@ import os
 import tempfile
 import json
 import yaml
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 from pprint import pprint
 from pprint import pformat
+from functools import partial
 
 import jinja2
 import netaddr
@@ -43,6 +44,9 @@ class TemplateFabric(object):
         j2_env = jinja2.Environment(loader=j2_loader, trim_blocks=True)
         j2_env.filters['ipv4'] = self.is_ipv4
         j2_env.filters['ipv6'] = self.is_ipv6
+        j2_env.filters['pfx_filter'] = self.pfx_filter
+        for attr in ['ip', 'network', 'prefixlen', 'netmask']:
+            j2_env.filters[attr] = partial(self.prefix_attr, attr)
         self.env = j2_env
 
     def from_file(self, filename):
@@ -76,6 +80,35 @@ class TemplateFabric(object):
             except:
                 return False
         return addr.version == 6
+
+    @staticmethod
+    def prefix_attr(attr, value):
+        if not value:
+            return None
+        else:
+            try:
+                prefix = netaddr.IPNetwork(str(value))
+            except:
+                return None
+        return str(getattr(prefix, attr))
+
+    @staticmethod
+    def pfx_filter(value):
+        """INTERFACE Table can have keys in one of the two formats:
+           string or tuple - This filter skips the string keys and only
+           take into account the tuple.
+           For eg - VLAN_INTERFACE|Vlan1000 vs VLAN_INTERFACE|Vlan1000|192.168.0.1/21
+        """
+        table = OrderedDict()
+
+        if not value:
+            return table
+
+        for key,val in value.items():
+            if not isinstance(key, tuple):
+                continue
+            table[key] = val
+        return table
 
 
 class Daemon(object):
@@ -268,7 +301,7 @@ class BGPNeighborMetaMgr(Manager):
 
 
 class BGPPeerMgrBase(Manager):
-    def __init__(self, daemon, directory, constants, table_name, add_template):
+    def __init__(self, daemon, directory, constants, table_name, add_template, check_neig_meta=True):
         super(BGPPeerMgrBase, self).__init__(
             daemon,
             directory,
@@ -282,6 +315,7 @@ class BGPPeerMgrBase(Manager):
             table_name,
         )
         self.table_name = table_name
+        self.check_neig_meta = check_neig_meta
         self.peers = self.load_peers()
 
         fabric = TemplateFabric()
@@ -298,14 +332,15 @@ class BGPPeerMgrBase(Manager):
         if key not in self.peers:
             cmd = None
             neigmeta = self.directory.get_slot("neigmeta")
-            if 'name' in data and data["name"] not in neigmeta:
+            if self.check_neig_meta and 'name' in data and data["name"] not in neigmeta:
                 return False
             try:
                 cmd = self.templates["add"].render(
                     DEVICE_METADATA=self.directory.get_slot("meta"),
                     DEVICE_NEIGHBOR_METADATA=neigmeta,
                     neighbor_addr=nbr,
-                    bgp_session=data
+                    bgp_session=data,
+                    constants=self.constants,
                 )
             except:
                 syslog.syslog(syslog.LOG_ERR, 'Peer {}. Error in rendering the template for "SET" command {}'.format(key, data))
@@ -429,6 +464,18 @@ class BGPMonMgr(BGPPeerMgrBase):
         )
 
 
+class BGPSpeakerMgr(BGPPeerMgrBase):
+    def __init__(self, daemon, directory, constants):
+        super(BGPSpeakerMgr, self).__init__(
+            daemon,
+            directory,
+            constants,
+            "BGP_PEER_RANGE", # no table name in swsscommon. check it
+            "{% include 'frr/bgpd/templates/BGP_SPEAKER/instance.conf.j2' %}",
+            False, # don't check neigmeta
+        )
+
+
 def wait_for_bgpd():
     # wait for 20 seconds
     stop_time = datetime.datetime.now() + datetime.timedelta(seconds=20)
@@ -453,6 +500,7 @@ def main():
         BGPNeighborMetaMgr,
         BGPPeerMgr,
         BGPMonMgr,
+        BGPSpeakerMgr,
     ]
     constants = read_constants()
     wait_for_bgpd()
