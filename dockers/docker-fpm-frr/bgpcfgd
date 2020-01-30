@@ -356,23 +356,25 @@ class BGPPeerMgrBase(Manager):
             # when the peer is already configured we support "shutdown/no shutdown"
             # commands for the peers only
             if "admin_status" in data:
-                if data['admin_status'] == 'up':
-                    rc = self.apply_op(self.templates["no shutdown"].render(neighbor_addr=nbr), vrf)
-                    if rc:
-                        syslog.syslog(syslog.LOG_INFO, 'Peer {} admin state is set to "up"'.format(key))
-                    else:
-                        syslog.syslog(syslog.LOG_ERR, "Peer {} admin state wasn't set to 'up'.".format(key))
-                elif data['admin_status'] == 'down':
-                    rc = self.apply_op(self.templates["shutdown"].render(neighbor_addr=nbr), vrf)
-                    if rc:
-                        syslog.syslog(syslog.LOG_INFO, 'Peer {} admin state is set to "down"'.format(key))
-                    else:
-                        syslog.syslog(syslog.LOG_ERR, "Peer {} admin state wasn't set to 'down'.".format(key))
-                else:
-                    syslog.syslog(syslog.LOG_ERR, "Peer {}: Can't update the peer. has wrong attribute value attr['admin_status'] = '{}'".format(key, data['admin_status']))
+                self.change_admin_status(key, data, nbr, vrf)
             else:
                 syslog.syslog(syslog.LOG_ERR, "Peer {}: Can't update the peer. No 'admin_status' attribute in the request".format(key))
         return True
+
+    def change_admin_status(self, key, data, nbr, vrf):
+        if data['admin_status'] == 'up':
+            self.apply_admin_status(key, nbr, vrf, "no shutdown", "up")
+        elif data['admin_status'] == 'down':
+            self.apply_admin_status(key, nbr, vrf, "shutdown", "down")
+        else:
+            syslog.syslog(syslog.LOG_ERR, "Peer {}: Can't update the peer. It has wrong attribute value attr['admin_status'] = '{}'".format(key, data['admin_status']))
+
+    def apply_admin_status(key, nbr, vrf, template_name, admin_state):
+        rc = self.apply_op(self.templates[template_name].render(neighbor_addr=nbr), vrf)
+        if rc:
+            syslog.syslog(syslog.LOG_INFO, "Peer '{}' admin state is set to '{}'".format(key, admin_state))
+        else:
+            syslog.syslog(syslog.LOG_ERR, "Can't set peer '{}' admin state to '{}'.".format(key, admin_state))
 
     def del_handler(self, key):
         key = self.normalize_key(key)
