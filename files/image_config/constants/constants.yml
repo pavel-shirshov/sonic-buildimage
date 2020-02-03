@@ -10,6 +10,9 @@ constants:
       LeafRouter:
         - ToRRouter
         - SpineRouter
+    families:
+      - ipv4
+      - ipv6
     graceful_restart:
       enabled: true
       restart_time: 240
@@ -31,39 +34,39 @@ constants:
           enabled: true
           level: ToRRouter
           deployment_id: 1
-          ipv: v4
+          family: ipv4
         T0_V6:
           enabled: true
           level: ToRRouter
           deployment_id: 1
-          ipv: v6
+          family: ipv6
         T1_V4:
           enabled: true
           level: LeafRouter
           deployment_id: 1
-          ipv: v4
+          family: ipv4
         T1_V6:
           enabled: true
           level: LeafRouter
           deployment_id: 1
-          ipv: v6
+          family: ipv6
         T2_V4:
           enabled: true
           level: SpineRouter
           deployment_id: 1
-          ipv: v4
+          family: ipv4
         T2_V6:
           enabled: true
           level: SpineRouter
           deployment_id: 1
-          ipv: v6
+          family: ipv6
         ER_V4:
           enabled: true
           level: ToRRouter
           deployment_id: 2
-          ipv: v4
+          family: ipv4
         ER_V6:
           enabled: true
           level: ToRRouter
           deployment_id: 2
-          ipv: v6
+          family: v6

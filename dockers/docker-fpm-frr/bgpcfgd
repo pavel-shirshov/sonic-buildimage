@@ -9,6 +9,7 @@ import signal
 import traceback
 import os
 import tempfile
+import copy
 import json
 import yaml
 from collections import defaultdict, OrderedDict
@@ -216,8 +217,9 @@ class Directory(object):
 
 
 class Manager(object):
-    def __init__(self, daemon, directory, constants, deps, database, table_name):
+    def __init__(self, daemon, directory, cfg_mgr, constants, deps, database, table_name):
         self.directory = directory
+        self.cfg_mgr = cfg_mgr
         self.constants = constants
         self.deps = deps
         self.set_queue = []
@@ -253,25 +255,20 @@ class Manager(object):
     def del_handler(self, key):
         syslog.syslog(syslog.LOG_ERR, "%s wasn't implemented for %s" % (self.__name__, self.__class__))
 
-
+#FIXME: make it simpler
 class BGPDeviceMetaMgr(Manager):
-    def __init__(self, daemon, directory, constants):
+    def __init__(self, daemon, directory, cfg_mgr, constants):
         super(BGPDeviceMetaMgr, self).__init__(
             daemon,
             directory,
             constants,
+            cfg_mgr,
             [],
             swsscommon.CONFIG_DB,
             swsscommon.CFG_DEVICE_METADATA_TABLE_NAME
         )
 
     def set_handler(self, key, data):
-        if key != "localhost" or "bgp_asn" not in data:
-            return
-        if self.directory.path_exist("meta", "localhost/bgp_asn"):
-            bgp_asn = self.directory.get_path("meta", "localhost/bgp_asn")
-            if bgp_asn == data["bgp_asn"]:
-                return
         self.directory.put("meta", key, data)
 
         return True
@@ -281,10 +278,11 @@ class BGPDeviceMetaMgr(Manager):
 
 
 class BGPNeighborMetaMgr(Manager):
-    def __init__(self, daemon, directory, constants):
+    def __init__(self, daemon, directory, cfg_mgr, constants):
         super(BGPNeighborMetaMgr, self).__init__(
             daemon,
             directory,
+            cfg_mgr,
             constants,
             [],
             swsscommon.CONFIG_DB,
@@ -300,11 +298,83 @@ class BGPNeighborMetaMgr(Manager):
         self.directory.remove("neigmeta", key)
 
 
+class BGPPeerGroupMgr(object):
+    def __init__(self, cfg_mgr, constants, peer_type):
+        self.peer_type = peer_type
+        self.constants = constants
+        #
+        self.expected_deployment_ids = []
+        self.expected_families = []
+        self.entries = []
+        self.load_data()
+        return
+
+# load_data from constants and from storage (disk, or disable disk wait for configdb only)
+# check that we have it in our config or not
+# then when we load a peer which required that, we update it.
+# enabled disabled
+
+    def load_data(self):
+        self.expected_deployment_ids = self.constants['constants']['deployment_id_asn_map'].keys()
+        self.expected_families = self.constants['constants']['bgp']['families']
+        self.cfg_mgr.update()
+        tf = TemplateFabric()
+        base_filename = "frr/bgpd/templates/%s/"
+        pg_filename = base_filename + "peer-group.conf.j2"
+        policy_filename = base_filename + "policies.conf.j2"
+        for peer_name, peer in self.constants['constants']['bgp']['peers'][self.peer_type].items():
+            if "enabled" in peer and peer["enabled"] is not None and peer["enabled"].lower() == "true"
+                self.entries[peer_name] = peer
+                self.entries[peer_name]['pg_template'] = tf.from_file(pg_filename % peer_name)
+                self.entries[peer_name]['policy_template'] = tf.from_file(policy_filename % peer_name)
+                self.entries[peer_name]['pg_installed'] = self.cfg_mgr.check_installed("XXX")
+                self.entries[peer_name]['policy_installed'] = self.cfg_mgr.check_installed("XXX")
+
+    def update(self, level, deployment_id, family):
+        pass
+
+
+class ConfigMgr(object):
+    def __init__(self):
+        self.current_config = None
+
+    def reset(self):
+        self.current_config = None
+
+    def update(self):
+        self.current_config = None
+        rc, out, err = run_command(["vtysh", "-c", "show running-config bgpd"])
+        if rc != 0:
+            return
+        self.current_config = {}
+        cur_offset = 0
+        cur_path = "/"
+        for line in out.split("\n"):
+            if line.strip().startswith('!') or line.strip() == '':
+                continue
+            n_spaces = self.count_spaces(line)
+#            XXX
+
+    def check_installed(self, path):
+        pass
+
+    @staticmethod
+    def count_spaces(line):
+        n = 0
+        for c in line:
+            if c != ' ':
+                return n
+            n += 1
+
+        return n
+
+
 class BGPPeerMgrBase(Manager):
-    def __init__(self, daemon, directory, constants, table_name, add_template, check_neig_meta=True):
+    def __init__(self, daemon, directory, cfg_mgr, constants, table_name, peer_type, add_template, check_neig_meta=True):
         super(BGPPeerMgrBase, self).__init__(
             daemon,
             directory,
+            cfg_mgr,
             constants,
             [
                 ("meta", "localhost/bgp_asn"),
@@ -317,6 +387,8 @@ class BGPPeerMgrBase(Manager):
         self.table_name = table_name
         self.check_neig_meta = check_neig_meta
         self.peers = self.load_peers()
+
+        self.peer_group_mgr = BGPPeerGroupMgr(cfg_mgr, constants, peer_type)
 
         fabric = TemplateFabric()
         self.templates = {
@@ -435,7 +507,7 @@ class BGPPeerMgrBase(Manager):
 
 
 class BGPPeerMgr(BGPPeerMgrBase):
-    def __init__(self, daemon, directory, constants):
+    def __init__(self, daemon, directory, cfg_mgr, constants):
         add_template = ''
         if_word = 'if'
         for peer_name, peer in constants['constants']['bgp']['peers']['general'].items():
@@ -449,30 +521,36 @@ class BGPPeerMgr(BGPPeerMgrBase):
         super(BGPPeerMgr, self).__init__(
             daemon,
             directory,
+            cfg_mgr,
             constants,
             swsscommon.CFG_BGP_NEIGHBOR_TABLE_NAME,
+            "general",
             add_template,
         )
 
 
 class BGPMonMgr(BGPPeerMgrBase):
-    def __init__(self, daemon, directory, constants):
+    def __init__(self, daemon, directory, cfg_mgr, constants):
         super(BGPMonMgr, self).__init__(
             daemon,
             directory,
+            cfg_mgr,
             constants,
             "BGP_MONITORS", # no table name in swsscommon
+            "monitors",
             "{% include 'frr/bgpd/templates/BGPMON/instance.conf.j2' %}",
         )
 
 
 class BGPSpeakerMgr(BGPPeerMgrBase):
-    def __init__(self, daemon, directory, constants):
+    def __init__(self, daemon, directory, cfg_mgr, constants):
         super(BGPSpeakerMgr, self).__init__(
             daemon,
             directory,
+            cfg_mgr,
             constants,
             "BGP_PEER_RANGE", # no table name in swsscommon. check it
+            "dynamic",
             "{% include 'frr/bgpd/templates/BGP_SPEAKER/instance.conf.j2' %}",
             False, # don't check neigmeta
         )
@@ -508,7 +586,8 @@ def main():
     wait_for_bgpd()
     daemon = Daemon()
     directory = Directory()
-    manager_instanses = [ manager(daemon, directory, constants) for manager in managers ]
+    cfg_mgr = ConfigMgr()
+    manager_instanses = [ manager(daemon, directory, cfg_mgr, constants) for manager in managers ]
     daemon.run()
 
 

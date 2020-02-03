@@ -3,27 +3,6 @@
 !
 ! bgp multiple-instance
 !
-! Policies:
-{# define dynamic policies #}
-{% for name, props in constants.bgp.peers.dynamic.items() %}
-{%   if props.enabled %}
-{%     include "frr/bgpd/templates/" + name + "/policies.conf.j2" %}
-{%   endif %}
-{% endfor %}
-{# define monitors policies #}
-{% for name, props in constants.bgp.peers.monitors.items() %}
-{%   if props.enabled %}
-{%     include "frr/bgpd/templates/" + name + "/policies.conf.j2" %}
-{%   endif %}
-{% endfor %}
-{# define general policies #}
-{% for name, props in constants.bgp.peers.general.items() %}
-{%   for peer_type in constants.bgp.levels[DEVICE_METADATA['localhost']['type']] %}
-{%     if props.enabled and props.deployment_id == DEVICE_METADATA['localhost']['deployment_id'] | int and props.level == peer_type %}
-{%       include "frr/bgpd/templates/" + name + "/policies.conf.j2" %}
-{%     endif %}
-{%   endfor %}
-{% endfor %}
 ! BGP configuration
 router bgp {{ DEVICE_METADATA['localhost']['bgp_asn'] }}
 !
@@ -38,10 +17,7 @@ router bgp {{ DEVICE_METADATA['localhost']['bgp_asn'] }}
 {% if constants.bgp.graceful_restart.enabled is defined and constants.bgp.graceful_restart.enabled %}
   bgp graceful-restart restart-time {{ constants.bgp.graceful_restart.restart_time | default(240) }}
   bgp graceful-restart
-{%   if DEVICE_METADATA['localhost']['type'] == 'ToRRouter' %}
-! FIXME: we could make it configurable from bgpcfgd
   bgp graceful-restart preserve-fw-state
-{%   endif %}
 {% endif %}
 !
 {# set router-id #}
@@ -77,28 +53,6 @@ router bgp {{ DEVICE_METADATA['localhost']['bgp_asn'] }}
   exit-address-family
 {% endblock maximum_paths %}
 {% endif %}
-!
-! ToDo: Use macro
-{# define dynamic peer groups #}
-{% for name, props in constants.bgp.peers.dynamic.items() %}
-{%   if props.enabled %}
-{%     include "frr/bgpd/templates/" + name + "/peer-group.conf.j2" %}
-{%   endif %}
-{% endfor %}
-{# define monitor peer groups #}
-{% for name, props in constants.bgp.peers.monitors.items() %}
-{%   if props.enabled %}
-{%     include "frr/bgpd/templates/" + name + "/peer-group.conf.j2" %}
-{%   endif %}
-{% endfor %}
-{# define general peer groups #}
-{% for name, props in constants.bgp.peers.general.items() %}
-{%   for peer_type in constants.bgp.levels[DEVICE_METADATA['localhost']['type']] %}
-{%     if props.enabled and props.deployment_id == DEVICE_METADATA['localhost']['deployment_id'] | int and props.level == peer_type %}
-{%     include "frr/bgpd/templates/" + name + "/peer-group.conf.j2" %}
-{%     endif %}
-{%   endfor %}
-{% endfor %}
 !
 ! end of template: frr/bgpd/bgpd.main.conf.j2
 !
