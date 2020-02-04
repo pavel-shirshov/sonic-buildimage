@@ -69,4 +69,4 @@ constants:
           enabled: true
           level: ToRRouter
           deployment_id: 2
-          family: v6
+          family: ipv6

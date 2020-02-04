@@ -11,6 +11,7 @@ import os
 import tempfile
 import copy
 import json
+import re
 import yaml
 from collections import defaultdict, OrderedDict
 from pprint import pprint
@@ -26,14 +27,15 @@ g_run = True
 g_debug = False
 
 
-def run_command(command, shell=False):
+def run_command(command, shell=False, hide_errors=False):
     str_cmd = " ".join(command)
     if g_debug:
         syslog.syslog(syslog.LOG_DEBUG, "execute command {}.".format(str_cmd))
     p = subprocess.Popen(command, shell=shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = p.communicate()
     if p.returncode != 0:
-        syslog.syslog(syslog.LOG_ERR, 'command execution returned {}. Command: "{}", stdout: "{}", stderr: "{}"'.format(p.returncode, str_cmd, stdout, stderr))
+        if not hide_errors:
+            syslog.syslog(syslog.LOG_ERR, 'command execution returned {}. Command: "{}", stdout: "{}", stderr: "{}"'.format(p.returncode, str_cmd, stdout, stderr))
 
     return p.returncode, stdout, stderr
 
@@ -255,59 +257,78 @@ class Manager(object):
     def del_handler(self, key):
         syslog.syslog(syslog.LOG_ERR, "%s wasn't implemented for %s" % (self.__name__, self.__class__))
 
-#FIXME: make it simpler
-class BGPDeviceMetaMgr(Manager):
-    def __init__(self, daemon, directory, cfg_mgr, constants):
-        super(BGPDeviceMetaMgr, self).__init__(
+
+class BGPCfgDataMgr(Manager):
+    def __init__(self, daemon, directory, cfg_mgr, constants, table, dir_key):
+        super(BGPCfgDataMgr, self).__init__(
             daemon,
             directory,
-            constants,
             cfg_mgr,
+            constants,
             [],
             swsscommon.CONFIG_DB,
-            swsscommon.CFG_DEVICE_METADATA_TABLE_NAME
+            table
         )
+        self.dir_key = dir_key
 
     def set_handler(self, key, data):
-        self.directory.put("meta", key, data)
+        self.directory.put(self.dir_key, key, data)
 
         return True
 
     def del_handler(self, key):
-        self.directory.remove("meta", key)
+        self.directory.remove(dir_key, key)
 
 
-class BGPNeighborMetaMgr(Manager):
+class BGPDeviceMetaMgr(BGPCfgDataMgr):
+    def __init__(self, daemon, directory, cfg_mgr, constants):
+        super(BGPDeviceMetaMgr, self).__init__(
+            daemon,
+            directory,
+            cfg_mgr,
+            constants,
+            swsscommon.CFG_DEVICE_METADATA_TABLE_NAME,
+            "meta"
+        )
+
+
+class BGPNeighborMetaMgr(BGPCfgDataMgr):
     def __init__(self, daemon, directory, cfg_mgr, constants):
         super(BGPNeighborMetaMgr, self).__init__(
             daemon,
             directory,
             cfg_mgr,
             constants,
-            [],
-            swsscommon.CONFIG_DB,
-            swsscommon.CFG_DEVICE_NEIGHBOR_METADATA_TABLE_NAME
+            swsscommon.CFG_DEVICE_NEIGHBOR_METADATA_TABLE_NAME,
+            "neigmeta"
         )
 
-    def set_handler(self, key, data):
-        self.directory.put("neigmeta", key, data)
 
-        return True
-
-    def del_handler(self, key):
-        self.directory.remove("neigmeta", key)
+class BGPLoopbackMgr(BGPCfgDataMgr):
+    def __init__(self, daemon, directory, cfg_mgr, constants):
+        super(BGPLoopbackMgr, self).__init__(
+            daemon,
+            directory,
+            cfg_mgr,
+            constants,
+            swsscommon.CFG_LOOPBACK_INTERFACE_TABLE_NAME,
+            "loopback"
+        )
 
 
 class BGPPeerGroupMgr(object):
-    def __init__(self, cfg_mgr, constants, peer_type):
-        self.peer_type = peer_type
+    def __init__(self, bgp_asn, vrf, cfg_mgr, constants, peer_type, loopback0_ip):
+        self.bgp_asn = bgp_asn
+        self.vrf = vrf
+        self.cfg_mgr = cfg_mgr
         self.constants = constants
+        self.peer_type = peer_type
+        self.loopback0_ip = loopback0_ip
         #
         self.expected_deployment_ids = []
         self.expected_families = []
-        self.entries = []
-        self.load_data()
-        return
+        self.entries = {}
+        self.tf = TemplateFabric()
 
 # load_data from constants and from storage (disk, or disable disk wait for configdb only)
 # check that we have it in our config or not
@@ -317,21 +338,63 @@ class BGPPeerGroupMgr(object):
     def load_data(self):
         self.expected_deployment_ids = self.constants['constants']['deployment_id_asn_map'].keys()
         self.expected_families = self.constants['constants']['bgp']['families']
-        self.cfg_mgr.update()
-        tf = TemplateFabric()
         base_filename = "frr/bgpd/templates/%s/"
         pg_filename = base_filename + "peer-group.conf.j2"
         policy_filename = base_filename + "policies.conf.j2"
         for peer_name, peer in self.constants['constants']['bgp']['peers'][self.peer_type].items():
-            if "enabled" in peer and peer["enabled"] is not None and peer["enabled"].lower() == "true"
+            if "enabled" in peer and peer["enabled"] is not None and peer["enabled"]:
                 self.entries[peer_name] = peer
-                self.entries[peer_name]['pg_template'] = tf.from_file(pg_filename % peer_name)
-                self.entries[peer_name]['policy_template'] = tf.from_file(policy_filename % peer_name)
-                self.entries[peer_name]['pg_installed'] = self.cfg_mgr.check_installed("XXX")
-                self.entries[peer_name]['policy_installed'] = self.cfg_mgr.check_installed("XXX")
+                self.entries[peer_name]['pg_template'] = self.tf.from_file(pg_filename % peer_name)
+                self.entries[peer_name]['policy_template'] = self.tf.from_file(policy_filename % peer_name)
+                self.entries[peer_name]['pg_installed'] = self.cfg_mgr.check_installed(r"router bgp \d+/neighbor \S+ peer-group %s" % peer_name)
+                self.entries[peer_name]['policy_installed_in' ] = self.cfg_mgr.check_installed(r"route-map FROM_%s" % peer_name)
+                self.entries[peer_name]['policy_installed_out'] = self.cfg_mgr.check_installed(r"route-map TO_%s"   % peer_name)
 
-    def update(self, level, deployment_id, family):
-        pass
+    def update(self, level, deployment_id, family, vrf):
+        self.load_data()
+        for peer_name, peer in self.constants['constants']['bgp']['peers'][self.peer_type].items():
+            if 'level' in peer and peer['level'] != level:
+                continue
+            if 'deployment_id' in peer and int(peer['deployment_id']) != int(deployment_id):
+                continue
+            if 'family' in peer and peer['family'] != family:
+                continue
+            if not self.entries[peer_name]['pg_installed']:
+                self.install_pg(self.entries[peer_name]['pg_template'], peer_name, vrf)
+                self.entries[peer_name]['pg_installed'] = True
+            if not self.entries[peer_name]['policy_installed_in']:
+                self.install_policy(self.entries[peer_name]['policy_template'], peer_name)
+                self.entries[peer_name]['policy_installed_in' ] = True
+                self.entries[peer_name]['policy_installed_out'] = True
+
+    def install_pg(self, template, name, vrf):
+        self.install(template, "Peer-group %s" % name, True, vrf)
+
+    def install_policy(self, template, name):
+        self.install(template, "Policies %s" % name)
+
+    def install(self, template, name, inside_router=False, vrf="default"):
+        try:
+            cmd = template.render(
+                loopback0_ip=self.loopback0_ip,
+                constants=self.constants,
+            )
+        except:
+            syslog.syslog(syslog.LOG_ERR, '{}. Error in rendering the template for "SET" command'.format(name))
+            return
+
+        if inside_router:
+            if vrf == 'default':
+                cmd = ('router bgp %s\n' % self.bgp_asn) + cmd
+            else:
+                cmd = ('router bgp %s vrf %s\n' % (self.bgp_asn, vrf)) + cmd
+
+        if cmd is not None:
+            rc = self.cfg_mgr.push(cmd)
+            if rc:
+                syslog.syslog(syslog.LOG_INFO, '{} added'.format(name))
+            else:
+                syslog.syslog(syslog.LOG_ERR, "{} wasn't added.".format(name))
 
 
 class ConfigMgr(object):
@@ -346,27 +409,65 @@ class ConfigMgr(object):
         rc, out, err = run_command(["vtysh", "-c", "show running-config bgpd"])
         if rc != 0:
             return
-        self.current_config = {}
+        self.parse(out)
+
+    def parse(self, raw_config):
+        self.current_config = []
         cur_offset = 0
-        cur_path = "/"
-        for line in out.split("\n"):
+        cur_path = []
+        last_line = ""
+        lines = raw_config.split("\n")
+        cur_path = [lines[0]]
+        for line in lines:
             if line.strip().startswith('!') or line.strip() == '':
                 continue
             n_spaces = self.count_spaces(line)
-#            XXX
+            s_line = line.strip()
+            assert(n_spaces == cur_offset or (n_spaces + 1) == cur_offset or (n_spaces - 1) == cur_offset)
+            if n_spaces == cur_offset:
+                cur_path[-1] = s_line
+            elif n_spaces > cur_offset:
+                cur_path.append(s_line)
+            elif n_spaces < cur_offset:
+                cur_path = cur_path[:-2]
+                cur_path.append(s_line)
+            self.current_config.append("/".join(cur_path))
+            cur_offset = n_spaces
+            last_line = s_line
 
-    def check_installed(self, path):
-        pass
+    def push(self, cmd):
+        fd, tmp_filename = tempfile.mkstemp(dir='/tmp')
+        os.close(fd)
+        with open(tmp_filename, 'w') as fp:
+            fp.write("%s\n" % cmd)
+        command = ["vtysh", "-f",  tmp_filename]
+        rc, _, _ = run_command(command)
+        os.remove(tmp_filename)
+        if rc != 0:
+            pprint(cmd.split("\n"))
+            print
+        if rc == 0:
+            self.current_config = None # invalidate config
+        return rc == 0
+
+    def check_installed(self, path_pattern):
+        # path must be in form: 'router bgp 64601/address-family ipv6 unicast/network fc00:1::/64',
+        # ToDo: Check line by line that current policy matches with the policy we want to install
+        #
+        if self.current_config is None:
+            self.update()
+
+        if self.current_config is not None:
+            re_path = re.compile(path_pattern)
+            for line in self.current_config:
+                if re_path.match(line):
+                    return True
+
+        return False
 
     @staticmethod
     def count_spaces(line):
-        n = 0
-        for c in line:
-            if c != ' ':
-                return n
-            n += 1
-
-        return n
+        return len(line) - len(line.lstrip())
 
 
 class BGPPeerMgrBase(Manager):
@@ -380,15 +481,17 @@ class BGPPeerMgrBase(Manager):
                 ("meta", "localhost/bgp_asn"),
                 ("meta", "localhost/deployment_id"),
                 ("neigmeta", ""),
+                ("loopback", "Loopback0"),
             ],
             swsscommon.CONFIG_DB,
             table_name,
         )
         self.table_name = table_name
+        self.peer_type = peer_type
         self.check_neig_meta = check_neig_meta
         self.peers = self.load_peers()
 
-        self.peer_group_mgr = BGPPeerGroupMgr(cfg_mgr, constants, peer_type)
+        self.peer_group_mgr = None
 
         fabric = TemplateFabric()
         self.templates = {
@@ -401,11 +504,18 @@ class BGPPeerMgrBase(Manager):
     def set_handler(self, key, data):
         key = self.normalize_key(key)
         vrf, nbr = key.split('|', 1)
+
         if key not in self.peers:
             cmd = None
             neigmeta = self.directory.get_slot("neigmeta")
             if self.check_neig_meta and 'name' in data and data["name"] not in neigmeta:
                 return False
+            if not self.install_peer_group_mgr(vrf):
+                return False
+            level = neigmeta[data["name"]]["type"]
+            deployment_id = neigmeta[data["name"]]["deployment_id"]
+            family = "ipv4" if TemplateFabric.is_ipv4(nbr) else "ipv6"
+            self.peer_group_mgr.update(level, deployment_id, family, vrf)
             try:
                 cmd = self.templates["add"].render(
                     DEVICE_METADATA=self.directory.get_slot("meta"),
@@ -464,19 +574,31 @@ class BGPPeerMgrBase(Manager):
 
     def apply_op(self, cmd, vrf):
         bgp_asn = self.directory.get_slot("meta")["localhost"]["bgp_asn"]
-        fd, tmp_filename = tempfile.mkstemp(dir='/tmp')
-        os.close(fd)
-        with open(tmp_filename, 'w') as fp:
-            if vrf == 'default':
-                fp.write('router bgp %s\n' % bgp_asn)
-            else:
-                fp.write('router bgp %s vrf %s\n' % (bgp_asn, vrf))
-            fp.write("%s\n" % cmd)
+        if vrf == 'default':
+            cmd = ('router bgp %s\n' % bgp_asn) + cmd
+        else:
+            cmd = ('router bgp %s vrf %s\n' % (bgp_asn, vrf)) + cmd
+        return self.cfg_mgr.push(cmd)
 
-        command = ["vtysh", "-f",  tmp_filename]
-        rc, _, _ = run_command(command)
-        os.remove(tmp_filename)
-        return rc == 0
+    def install_peer_group_mgr(self, vrf):
+        if self.peer_group_mgr is not None:
+            return True
+        bgp_asn = self.directory.get_slot("meta")["localhost"]["bgp_asn"]
+        loopback0_ipv4 = None
+        for loopback in self.directory.get_slot("loopback").iterkeys():
+           if loopback.startswith("Loopback0|"):
+                loopback0_prefix_str = loopback.replace("Loopback0|", "")
+                loopback0_ip_str = loopback0_prefix_str[:loopback0_prefix_str.find('/')]
+                if TemplateFabric.is_ipv4(loopback0_ip_str):
+                    loopback0_ipv4 = loopback0_ip_str
+                    break
+
+        if loopback0_ipv4 is None:
+            syslog.syslog(syslog.LOG_INFO, "Loopback0: ipv4 address wasn't found")
+            return False
+
+        self.peer_group_mgr = BGPPeerGroupMgr(bgp_asn, vrf, self.cfg_mgr, self.constants, self.peer_type, loopback0_ipv4)
+        return True
 
     @staticmethod
     def normalize_key(key):
@@ -512,7 +634,7 @@ class BGPPeerMgr(BGPPeerMgrBase):
         if_word = 'if'
         for peer_name, peer in constants['constants']['bgp']['peers']['general'].items():
             add_template += "{%% %s DEVICE_NEIGHBOR_METADATA[bgp_session['name']]['deployment_id'] == '%s'" % (if_word, peer["deployment_id"])
-            add_template += " and neighbor_addr | %s" % ('ipv4' if peer["ipv"] == 'v4' else 'ipv6')
+            add_template += " and neighbor_addr | %s" % peer["family"]
             add_template += " and DEVICE_NEIGHBOR_METADATA[bgp_session['name']]['type'] == '%s' %%}" % peer["level"]
             add_template += "  {%% include 'frr/bgpd/templates/%s/instance.conf.j2' %%}" % peer_name
             if_word = 'elif'
@@ -561,7 +683,7 @@ def wait_for_bgpd():
     stop_time = datetime.datetime.now() + datetime.timedelta(seconds=20)
     syslog.syslog(syslog.LOG_INFO, "Start waiting for bgpd: %s" % str(datetime.datetime.now()))
     while datetime.datetime.now() < stop_time:
-        rc, out, err = run_command(["vtysh", "-c", "show daemons"])
+        rc, out, err = run_command(["vtysh", "-c", "show daemons"], hide_errors=True)
         if rc == 0 and "bgpd" in out:
             syslog.syslog(syslog.LOG_INFO, "bgpd connected to vtysh: %s" % str(datetime.datetime.now()))
             return
@@ -578,6 +700,7 @@ def main():
     managers = [
         BGPDeviceMetaMgr,
         BGPNeighborMetaMgr,
+        BGPLoopbackMgr,
         BGPPeerMgr,
         BGPMonMgr,
         BGPSpeakerMgr,
@@ -608,9 +731,11 @@ if __name__ == '__main__':
     except RuntimeError as e:
         syslog.syslog(syslog.LOG_CRIT, "%s" % str(e))
         rc = -2
+        raise
     except Exception as e:
         syslog.syslog(syslog.LOG_CRIT, "Got an exception %s: Traceback: %s" % (str(e), traceback.format_exc()))
         rc = -1
+        raise
     finally:
         syslog.closelog()
     try:
