@@ -330,11 +330,6 @@ class BGPPeerGroupMgr(object):
         self.entries = {}
         self.tf = TemplateFabric()
 
-# load_data from constants and from storage (disk, or disable disk wait for configdb only)
-# check that we have it in our config or not
-# then when we load a peer which required that, we update it.
-# enabled disabled
-
     def load_data(self):
         self.expected_deployment_ids = self.constants['constants']['deployment_id_asn_map'].keys()
         self.expected_families = self.constants['constants']['bgp']['families']
@@ -350,7 +345,7 @@ class BGPPeerGroupMgr(object):
                 self.entries[peer_name]['policy_installed_in' ] = self.cfg_mgr.check_installed(r"route-map FROM_%s" % peer_name)
                 self.entries[peer_name]['policy_installed_out'] = self.cfg_mgr.check_installed(r"route-map TO_%s"   % peer_name)
 
-    def update(self, level, deployment_id, family, vrf):
+    def update(self, level, deployment_id, family):
         self.load_data()
         for peer_name, peer in self.constants['constants']['bgp']['peers'][self.peer_type].items():
             if 'level' in peer and peer['level'] != level:
@@ -360,20 +355,20 @@ class BGPPeerGroupMgr(object):
             if 'family' in peer and peer['family'] != family:
                 continue
             if not self.entries[peer_name]['pg_installed']:
-                self.install_pg(self.entries[peer_name]['pg_template'], peer_name, vrf)
+                self.install_pg(self.entries[peer_name]['pg_template'], peer_name)
                 self.entries[peer_name]['pg_installed'] = True
             if not self.entries[peer_name]['policy_installed_in']:
                 self.install_policy(self.entries[peer_name]['policy_template'], peer_name)
                 self.entries[peer_name]['policy_installed_in' ] = True
                 self.entries[peer_name]['policy_installed_out'] = True
 
-    def install_pg(self, template, name, vrf):
-        self.install(template, "Peer-group %s" % name, True, vrf)
+    def install_pg(self, template, name):
+        self.install(template, "Peer-group %s" % name, True)
 
     def install_policy(self, template, name):
         self.install(template, "Policies %s" % name)
 
-    def install(self, template, name, inside_router=False, vrf="default"):
+    def install(self, template, name, inside_router=False):
         try:
             cmd = template.render(
                 loopback0_ip=self.loopback0_ip,
@@ -384,10 +379,10 @@ class BGPPeerGroupMgr(object):
             return
 
         if inside_router:
-            if vrf == 'default':
+            if self.vrf == 'default':
                 cmd = ('router bgp %s\n' % self.bgp_asn) + cmd
             else:
-                cmd = ('router bgp %s vrf %s\n' % (self.bgp_asn, vrf)) + cmd
+                cmd = ('router bgp %s vrf %s\n' % (self.bgp_asn, self.vrf)) + cmd
 
         if cmd is not None:
             rc = self.cfg_mgr.push(cmd)
@@ -515,7 +510,7 @@ class BGPPeerMgrBase(Manager):
             level = neigmeta[data["name"]]["type"]
             deployment_id = neigmeta[data["name"]]["deployment_id"]
             family = "ipv4" if TemplateFabric.is_ipv4(nbr) else "ipv6"
-            self.peer_group_mgr.update(level, deployment_id, family, vrf)
+            self.peer_group_mgr.update(level, deployment_id, family)
             try:
                 cmd = self.templates["add"].render(
                     DEVICE_METADATA=self.directory.get_slot("meta"),
