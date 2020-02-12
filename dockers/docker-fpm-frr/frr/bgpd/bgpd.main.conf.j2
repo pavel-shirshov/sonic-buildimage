@@ -4,6 +4,13 @@
 ! bgp multiple-instance
 !
 ! BGP configuration
+!
+! TSA configuration
+!
+ip prefix-list PL_LoopbackV4 permit {{ get_ipv4_loopback_address(LOOPBACK_INTERFACE, "Loopback0") | ip }}/32
+!
+ipv6 prefix-list PL_LoopbackV6 permit {{ get_ipv6_loopback_address(LOOPBACK_INTERFACE, "Loopback0") | replace('/128', '/64') | ip_network }}/64
+!
 router bgp {{ DEVICE_METADATA['localhost']['bgp_asn'] }}
 !
 {% block bgp_init %}

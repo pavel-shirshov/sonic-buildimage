@@ -1,6 +1,3 @@
-no route-map TO_BGP_PEER_V4 permit 2
-no route-map TO_BGP_PEER_V4 deny 3
-!
-no route-map TO_BGP_PEER_V6 permit 2
-no route-map TO_BGP_PEER_V6 deny 3
+no route-map {{ route_map_name }} permit 2
+no route-map {{ route_map_name }} deny 3
 !
