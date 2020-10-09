@@ -5,6 +5,7 @@ import jinja2
 import netaddr
 
 from .log import log_warn, log_err, log_info, log_debug, log_crit
+from .managers_bbr import extract_bbr_settings
 from .manager import Manager
 from .template import TemplateFabric
 from .utils import run_command
@@ -20,6 +21,7 @@ class BGPPeerGroupMgr(object):
         """
         self.cfg_mgr = common_objs['cfg_mgr']
         self.constants = common_objs['constants']
+        self.directory = common_objs['directory']
         tf = common_objs['tf']
         self.policy_template = tf.from_file(base_template + "policies.conf.j2")
         self.peergroup_template = tf.from_file(base_template + "peer-group.conf.j2")
@@ -56,6 +58,7 @@ class BGPPeerGroupMgr(object):
         """
         try:
             pg = self.peergroup_template.render(**kwargs)
+            extract_bbr_settings(self.directory, self.peergroup_template, kwargs)
         except jinja2.TemplateError as e:
             log_err("Can't render peer-group template: '%s': %s" % (name, str(e)))
             return False
@@ -187,6 +190,7 @@ class BGPPeerMgrBase(Manager):
 
         kwargs = {
             'CONFIG_DB__DEVICE_METADATA': self.directory.get_slot("CONFIG_DB", swsscommon.CFG_DEVICE_METADATA_TABLE_NAME),
+            'CONFIG_DB__BGP_BBR': self.directory.get_slot('CONFIG_DB', 'BGP_BBR'),
             'constants': self.constants,
             'bgp_asn': bgp_asn,
             'vrf': vrf,

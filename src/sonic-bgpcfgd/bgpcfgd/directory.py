@@ -77,6 +77,15 @@ class Directory(object):
                     for handler in self.notify[slot][path]:
                         handler()
 
+    def put_slot(self, db, table, slot_value):
+        slot = self.get_slot_name(db, table)
+        self.data[slot] = slot_value
+        if slot in self.notify:
+            for path in self.notify[slot].keys():
+                if self.path_exist(db, table, path):
+                    for handler in self.notify[slot][path]:
+                        handler()
+
     def get(self, db, table, key):
         """
         Get a value from the storage
