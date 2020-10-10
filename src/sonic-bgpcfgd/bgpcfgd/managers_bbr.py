@@ -1,7 +1,7 @@
 from collections import defaultdict
 import re
 import jinja2
-import swsscommon
+from swsscommon import swsscommon
 
 from .log import log_err, log_warn, log_info
 from .manager import Manager
@@ -29,20 +29,20 @@ class BBRMgr(Manager):
 
     def set_handler(self, key, data):
         """ Implementation of 'SET' command for this class """
-        if key != 'status':
-            log_err("Invalid key '%s' for table '%s'" % (key, self.table_name))
+        if key != 'all':
+            log_err("Invalid key '%s' for table '%s'. The key should be 'all'" % (key, self.table_name))
             return True
-        if data != "enabled" or data != "disabled":
+        if 'status' not in data or data['status'] != "enabled" or data['status'] != "disabled":
             log_err("Invalid value '%s' for table '%s', key '%s'" % (data, self.table_name, key))
             return True
-        self.directory.put(self.db_name, self.table_name, key, data)
+        self.directory.put(self.db_name, self.table_name, 'status', data['status'])
         #
         if not self.directory.available('LOCAL', "BBR_peer-group"):
             log_info("No BBR data collected yet")
             return False
 
         peer_groups = self.directory.get_slot('LOCAL', "BBR_peer-group")
-        prefix_of_commands = "" if data == "enabled" else "no "
+        prefix_of_commands = "" if data['status'] == "enabled" else "no "
         bgp_asn = self.directory.get_slot("CONFIG_DB", swsscommon.CFG_DEVICE_METADATA_TABLE_NAME)["localhost"]["bgp_asn"]
         cmds = ["router bgp %s" % bgp_asn]
         for af in ["ipv4", "ipv6"]:
@@ -60,7 +60,8 @@ class BBRMgr(Manager):
     def init(self):
         if 'bgp' in self.constants and \
                 'bbr' in self.constants['bgp'] and \
-                'enabled' in self.constants['bgp']['bb']:
+                'enabled' in self.constants['bgp']['bbr'] and \
+                self.constants['bgp']['bbr']['enabled']:
             self.enabled = True
             value = "enabled"
         else:
